@@ -125,7 +125,7 @@ docker run -p 7860:7860 \
 ### Option 3 — Hugging Face Spaces (live)
 
 ```
-https://nityanama-multi-cloud-optimizer.hf.space
+https://nityanama-multi_cloud_optimizer.hf.space
 ```
 
 ---
