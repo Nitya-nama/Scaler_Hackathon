@@ -26,3 +26,20 @@ endpoints:
   state: /state
 
 reward_range: [0.0, 1.0]
+
+tasks:
+  - id: easy
+    difficulty: easy
+    description: "API request with relaxed SLA. GCP is cheapest and fastest."
+  - id: medium
+    difficulty: medium
+    description: "Batch job where the cheapest option exceeds latency SLA."
+  - id: hard
+    difficulty: hard
+    description: "ML training job with strict SLA. Misleading sticker prices."
+  - id: bonus_cost
+    difficulty: easy
+    description: "All providers meet SLA. Straightforward cost minimization."
+  - id: bonus_strict_sla
+    difficulty: hard
+    description: "Ultra-tight 60ms SLA; only one provider qualifies."

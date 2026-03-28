@@ -3,6 +3,9 @@ app.py — Flask REST API for the SLA-Aware Multi-Cloud Cost Optimizer.
 
 Endpoints
 ---------
+GET /reset            → reset the environment and return initial state
+POST /step            → take an action (cloud selection) and return new state + reward
+GET  /state            → get current environment state without taking an action
 GET  /tasks            → list all available benchmark tasks
 GET  /tasks/<task_id>  → full detail for one task
 POST /grader           → score a cloud selection against a task
@@ -17,6 +20,7 @@ import sys
 import os
 from flask import Flask, request, jsonify, Response
 from env.cloud_env  import CloudEnvironment, PROVIDERS
+from env.models     import Observation, Action, Reward, StepResponse
 from tasks.tasks    import TASKS, list_tasks, get_task
 from baseline.baseline import run_baseline, run_baseline_on_task
 
@@ -62,25 +66,37 @@ def reset_env():
     global global_env
     global_env = CloudEnvironment()
     state = global_env.reset()
-    return jsonify(state)
+    obs = Observation(**state)
+    return jsonify(obs.model_dump())
 
 @app.post("/step")
 def step_env():
     global global_env
 
     data = request.json
-    action = data.get("action")
+    if not data or "action" not in data:
+        return _error("Request body must include 'action' field.", 400)
+
+    # Validate action via Pydantic
+    try:
+        action_model = Action(action=data["action"])
+    except Exception as e:
+        return _error(f"Invalid action: {e}. Must be one of: aws, azure, gcp.", 400)
 
     if not global_env:
-        return {"error": "Environment not initialized"}, 400
+        return _error("Environment not initialized. Call /reset first.", 400)
 
-    state, reward, done, info = global_env.step(action)
+    state, reward, done, info = global_env.step(action_model.action)
+
+    # Validate response via Pydantic
+    obs = Observation(**state)
+    reward_model = Reward(reward=reward, done=done, info=info)
 
     return jsonify({
-        "state": state,
-        "reward": reward,
-        "done": done,
-        "info": info
+        "state" : obs.model_dump(),
+        "reward": reward_model.reward,
+        "done"  : reward_model.done,
+        "info"  : reward_model.info,
     })
     
 @app.get("/state")
@@ -88,9 +104,10 @@ def get_state():
     global global_env
 
     if not global_env:
-        return {"error": "Environment not initialized"}, 400
+        return _error("Environment not initialized. Call /reset first.", 400)
 
-    return jsonify(global_env.get_state())    
+    obs = Observation(**global_env.get_state())
+    return jsonify(obs.model_dump())    
 
 @app.get("/health")
 def health():
