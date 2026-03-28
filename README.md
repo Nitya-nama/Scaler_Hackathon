@@ -6,279 +6,196 @@ colorTo: green
 sdk: docker
 app_port: 7860
 pinned: false
+tags:
+  - openenv
+  - reinforcement-learning
+  - cloud-optimization
+  - llm-agent
 ---
 
-# SLA-Aware Multi-Cloud Cost Optimizer
+# 🚀 SLA-Aware Multi-Cloud Cost Optimizer
 
-> An OpenEnv-compatible reinforcement learning environment where an AI agent selects the optimal cloud provider (AWS, Azure, GCP) by minimizing cost while satisfying latency SLA constraints.
+> A fully OpenEnv-compliant reinforcement learning environment where an AI agent learns to route cloud workloads across AWS, Azure, and GCP — minimizing cost while guaranteeing latency SLA compliance.
 
----
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [How It Works](#how-it-works)
-3. [Project Structure](#project-structure)
-4. [Quickstart](#quickstart)
-5. [API Reference](#api-reference)
-6. [Environment Design](#environment-design)
-7. [Reward Function](#reward-function)
-8. [Tasks](#tasks)
-9. [Baseline Agent](#baseline-agent)
-10. [Docker](#docker)
+Built for the **Meta × PyTorch Hackathon 2026** hosted by Scaler School of Technology.
 
 ---
 
-## Overview
+## 🧠 The Problem
 
-Cloud cost optimization is a hard combinatorial problem: the cheapest provider may violate latency SLAs, while the fastest may be prohibitively expensive. This project frames the problem as an OpenEnv-compatible decision environment:
+Cloud cost optimization is a real, hard problem faced by every engineering team running production workloads:
 
-- **State** — job type + per-provider cost/latency metrics + SLA constraint
-- **Action** — select one cloud provider: `aws`, `azure`, or `gcp`
-- **Reward** — continuous signal in `[0, 1]` reflecting cost efficiency and SLA compliance
+- The **cheapest** provider may violate your latency SLA
+- The **fastest** provider may be prohibitively expensive
+- The **right** choice changes per job type, per SLA window, per time of day
 
-A Flask REST API exposes the environment for grading agent decisions and benchmarking.
+This environment frames it as a sequential decision problem that an RL agent or LLM agent can learn to solve — with a meaningful, continuous reward signal that reflects real-world tradeoffs.
 
 ---
 
-## How It Works
+## ✨ Key Features
+
+- ✅ Full **OpenEnv spec** compliance — `step()`, `reset()`, `state()`, `openenv.yaml`
+- ✅ **Pydantic typed models** — `Observation`, `Action`, `Reward`, `StepResponse`
+- ✅ **5 benchmark tasks** spanning easy → medium → hard difficulty
+- ✅ **Continuous reward** in `[0, 1]` — not sparse, not binary
+- ✅ **LLM baseline** using OpenAI-compatible client (Qwen/Qwen2.5-72B-Instruct)
+- ✅ **Deterministic graders** — reproducible scores across runs
+- ✅ Deployed on **Hugging Face Spaces** with Docker
+- ✅ Flask REST API with full endpoint coverage
+
+---
+
+## 🔁 How It Works
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    OpenEnv Loop                          │
-│                                                          │
-│  state = env.reset()          ← new job arrives          │
-│  action = agent.select(state) ← agent picks a cloud      │
-│  s, reward, done, info = env.step(action)                │
-│                               ← reward ∈ [0, 1]          │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                      OpenEnv Loop                            │
+│                                                              │
+│  observation = env.reset()       ← new cloud job arrives    │
+│  action      = agent.act(obs)    ← agent picks a provider   │
+│  obs, reward, done, info = env.step(action)                  │
+│                                  ← reward ∈ [0.0, 1.0]      │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-1. The environment generates a **job** (e.g., `ml_training`) with random or fixed per-provider cost and latency values.
-2. An **SLA constraint** (`sla_max_latency`) defines the maximum allowed latency in milliseconds.
-3. The agent selects one of three cloud providers.
-4. The **reward function** returns `0.0` if the SLA is violated, or a value in `[0.3, 1.0]` based on cost efficiency and latency headroom.
+1. A **job** arrives (`ml_training`, `api_request`, or `batch_job`) with randomized cost and latency figures per provider
+2. An **SLA constraint** (`sla_max_latency`) sets the hard latency limit in milliseconds
+3. The agent selects one of three cloud providers: `aws`, `azure`, or `gcp`
+4. The **reward function** returns `0.0` on SLA violation, or a value in `[0.30, 1.00]` based on cost efficiency, latency headroom, and optimality
 
 ---
 
-## Project Structure
+## 📁 Project Structure
 
 ```
-project/
+multi-cloud-optimizer/
 ├── env/
-│   └── cloud_env.py        # OpenEnv environment (reset, step, get_state)
+│   ├── cloud_env.py       # OpenEnv environment (reset, step, get_state)
+│   └── models.py          # Pydantic typed models (Observation, Action, Reward)
 ├── api/
-│   └── app.py              # Flask REST API
+│   └── app.py             # Flask REST API — all OpenEnv endpoints
 ├── tasks/
-│   └── tasks.py            # Predefined benchmark tasks (easy / medium / hard)
+│   └── tasks.py           # 5 benchmark tasks (easy → hard)
 ├── baseline/
-│   └── baseline.py         # Rule-based greedy baseline agent
-├── Dockerfile              # Container definition
-├── requirements.txt        # Python dependencies
-└── README.md               # This file
+│   └── baseline.py        # Greedy rule-based baseline agent
+├── inference.py           # LLM agent using OpenAI client (root, required)
+├── openenv.yaml           # OpenEnv metadata and task registry
+├── Dockerfile             # Production container (gunicorn)
+├── requirements.txt       # Python dependencies
+└── README.md              # This file
 ```
 
 ---
 
-## Quickstart
+## ⚡ Quickstart
 
-### Local (without Docker)
+### Option 1 — Local (no Docker)
 
 ```bash
-# 1. Install dependencies
+# 1. Clone and install
+git clone https://huggingface.co/spaces/nityanama/multi-cloud-optimizer
+cd multi-cloud-optimizer
 pip install -r requirements.txt
 
-# 2. Start the API server
-python api/app.py
-# → Listening on http://0.0.0.0:7860
+# 2. Set environment variables
+export API_BASE_URL=https://router.huggingface.co/v1
+export MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
+export HF_TOKEN=hf_your_token_here
 
-# 3. (Optional) Run the baseline agent directly
-python baseline/baseline.py
+# 3. Start the API server (Terminal 1)
+python api/app.py
+
+# 4. Run LLM inference (Terminal 2)
+python inference.py
 ```
 
-### With Docker
+### Option 2 — Docker
 
 ```bash
 docker build -t cloud-optimizer .
-docker run -p 7860:7860 cloud-optimizer
+
+docker run -p 7860:7860 \
+  -e API_BASE_URL=https://router.huggingface.co/v1 \
+  -e MODEL_NAME=Qwen/Qwen2.5-72B-Instruct \
+  -e HF_TOKEN=your_token_here \
+  cloud-optimizer
+```
+
+### Option 3 — Hugging Face Spaces (live)
+
+```
+https://nityanama-multi-cloud-optimizer.hf.space
 ```
 
 ---
 
-## API Reference
+## 🔌 API Reference
 
-Base URL: `http://localhost:7860`
+Base URL: `http://localhost:7860` (local) or `https://nityanama-multi-cloud-optimizer.hf.space` (HF)
 
----
+### OpenEnv Core Endpoints
 
-### `GET /health`
-
-Liveness check.
+#### `GET /reset`
+Start a new episode. Returns a fresh observation.
 
 ```bash
-curl http://localhost:7860/health
+curl http://localhost:7860/reset
 ```
-
 ```json
 {
-  "status": "ok",
-  "service": "SLA-Aware Multi-Cloud Cost Optimizer"
-}
-```
-
----
-
-### `GET /tasks`
-
-List all benchmark tasks.
-
-```bash
-curl http://localhost:7860/tasks
-```
-
-```json
-{
-  "count": 5,
-  "tasks": [
-    {
-      "task_id": "easy",
-      "difficulty": "easy",
-      "job_type": "api_request",
-      "description": "API request with relaxed SLA. GCP is cheapest and fastest.",
-      "sla_max_latency": 90
-    },
-    {
-      "task_id": "medium",
-      "difficulty": "medium",
-      "job_type": "batch_job",
-      "description": "Batch job where the cheapest option exceeds latency SLA.",
-      "sla_max_latency": 125
-    },
-    ...
-  ]
-}
-```
-
----
-
-### `GET /tasks/<task_id>`
-
-Retrieve full provider metrics for a task.
-
-```bash
-curl http://localhost:7860/tasks/medium
-```
-
-```json
-{
-  "task_id": "medium",
-  "difficulty": "medium",
-  "description": "Batch job where the cheapest option exceeds latency SLA.",
   "job_type": "batch_job",
   "sla_max_latency": 125,
   "providers": {
-    "aws":   {"cost": 55, "latency": 145},
-    "azure": {"cost": 85, "latency": 118},
-    "gcp":   {"cost": 72, "latency": 108}
-  },
-  "hint": "AWS violates SLA. Among compliant options, GCP is cheaper."
+    "aws":   {"cost": 55.0, "latency": 145.0},
+    "azure": {"cost": 85.0, "latency": 118.0},
+    "gcp":   {"cost": 72.0, "latency": 108.0}
+  }
 }
+```
+
+#### `POST /step`
+Take an action. Returns next state, reward, done, info.
+
+```bash
+curl -X POST http://localhost:7860/step \
+  -H "Content-Type: application/json" \
+  -d '{"action": "gcp"}'
+```
+```json
+{
+  "state":  {"job_type": "batch_job", "sla_max_latency": 125, "providers": {"...": "..."}},
+  "reward": 0.8704,
+  "done":   true,
+  "info":   {"selected_cloud": "gcp", "cost": 72.0, "latency": 108.0, "sla_met": true}
+}
+```
+
+#### `GET /state`
+Return the current environment state without advancing the episode.
+
+```bash
+curl http://localhost:7860/state
 ```
 
 ---
 
-### `POST /grader`
+### Task & Grader Endpoints
 
-Score a cloud provider selection.
+#### `GET /tasks`
+List all benchmark tasks.
 
-**Request**
+#### `GET /tasks/<task_id>`
+Full provider metrics for a specific task.
+
+#### `POST /grader`
+Score a cloud selection against a task.
 
 ```bash
 curl -X POST http://localhost:7860/grader \
   -H "Content-Type: application/json" \
-  -d '{"task_id": "easy", "selected_cloud": "gcp"}'
+  -d '{"task_id": "hard", "selected_cloud": "gcp"}'
 ```
-
-**Response**
-
-```json
-{
-  "task_id": "easy",
-  "selected_cloud": "gcp",
-  "cost": 40,
-  "latency": 58,
-  "sla_max_latency": 90,
-  "sla_met": true,
-  "reward": 0.9250,
-  "grade": "excellent"
-}
-```
-
-**SLA violation example**
-
-```bash
-curl -X POST http://localhost:7860/grader \
-  -H "Content-Type: application/json" \
-  -d '{"task_id": "medium", "selected_cloud": "aws"}'
-```
-
-```json
-{
-  "task_id": "medium",
-  "selected_cloud": "aws",
-  "cost": 55,
-  "latency": 145,
-  "sla_max_latency": 125,
-  "sla_met": false,
-  "reward": 0.0,
-  "grade": "failed (SLA violation)"
-}
-```
-
----
-
-### `GET /baseline`
-
-Run the greedy baseline agent on all tasks.
-
-```bash
-curl http://localhost:7860/baseline
-```
-
-```json
-{
-  "strategy": "cheapest_sla_compliant",
-  "average_reward": 0.8700,
-  "total_tasks": 5,
-  "sla_violations": 0,
-  "optimal_picks": 4,
-  "results": [
-    {
-      "task_id": "easy",
-      "difficulty": "easy",
-      "selected_cloud": "gcp",
-      "cost": 40,
-      "latency": 58,
-      "sla_max_latency": 90,
-      "sla_met": true,
-      "reward": 0.9250,
-      "is_optimal": true
-    },
-    ...
-  ]
-}
-```
-
----
-
-### `GET /baseline/<task_id>`
-
-Run the baseline agent on a single task.
-
-```bash
-curl http://localhost:7860/baseline/hard
-```
-
 ```json
 {
   "task_id": "hard",
@@ -287,129 +204,157 @@ curl http://localhost:7860/baseline/hard
   "latency": 205,
   "sla_max_latency": 210,
   "sla_met": true,
-  "reward": 0.7800,
-  "strategy": "cheapest_sla_compliant"
+  "reward": 0.8536,
+  "grade": "good"
 }
 ```
 
----
+#### `GET /baseline`
+Run the greedy baseline agent across all 5 tasks.
 
-### `GET /compare/<task_id>`
+#### `GET /compare/<task_id>`
+Score all three providers against a task simultaneously.
 
-Score all three providers at once — useful for analysis.
-
-```bash
-curl http://localhost:7860/compare/hard
-```
-
-```json
-{
-  "task_id": "hard",
-  "sla_max_latency": 210,
-  "scores": {
-    "aws":   {"cost": 140, "latency": 195, "sla_met": true,  "reward": 0.5200},
-    "azure": {"cost": 105, "latency": 215, "sla_met": false, "reward": 0.0},
-    "gcp":   {"cost": 125, "latency": 205, "sla_met": true,  "reward": 0.7800}
-  },
-  "best_provider": "gcp"
-}
-```
+#### `GET /health`
+Liveness check — returns `{"status": "ok"}`.
 
 ---
 
-## Environment Design
+## 🧩 Environment Design
 
-### State
+### Observation Space
 
 ```python
-{
-    "job_type":        "batch_job",         # ml_training | api_request | batch_job
-    "sla_max_latency": 125,                 # milliseconds
-    "providers": {
-        "aws":   {"cost": 55.0, "latency": 145.0},
-        "azure": {"cost": 85.0, "latency": 118.0},
-        "gcp":   {"cost": 72.0, "latency": 108.0},
-    }
-}
+class Observation(BaseModel):
+    job_type: str                                      # ml_training | api_request | batch_job
+    sla_max_latency: float                             # Hard latency limit in milliseconds
+    providers: Dict[Literal["aws","azure","gcp"], ProviderMetrics]
 ```
 
-### Actions
+### Action Space
 
-| Action  | Description          |
-|---------|----------------------|
-| `"aws"` | Select Amazon Web Services |
-| `"azure"` | Select Microsoft Azure |
-| `"gcp"` | Select Google Cloud Platform |
+```python
+class Action(BaseModel):
+    action: Literal["aws", "azure", "gcp"]             # Discrete — pick one provider
+```
+
+### Reward Model
+
+```python
+class Reward(BaseModel):
+    reward: float    # ge=0.0, le=1.0
+    done:   bool
+    info:   Dict
+```
 
 ---
 
-## Reward Function
+## 🏆 Reward Function
 
 ```
-reward = 0.0                          if latency > sla_max_latency  (hard gate)
+reward = 0.0                            ← SLA violated (hard gate)
        = 0.75 × cost_score
        + 0.15 × latency_headroom_ratio
        + 0.10 × efficiency_bonus
-       clipped to [0.30, 1.00]
+         clipped to [0.30, 1.00]
 ```
 
-| Range       | Interpretation         |
-|-------------|------------------------|
-| `0.0`       | SLA violated           |
-| `0.30–0.59` | Poor — meets SLA but expensive |
-| `0.60–0.74` | Fair                   |
-| `0.75–0.89` | Good                   |
-| `0.90–1.00` | Excellent / optimal    |
+| Score Range | Grade     | Meaning                             |
+|-------------|-----------|-------------------------------------|
+| `0.0`       | Failed    | SLA violated                        |
+| `0.30–0.59` | Poor      | Meets SLA but far from optimal cost |
+| `0.60–0.74` | Fair      | Reasonable choice                   |
+| `0.75–0.89` | Good      | Near-optimal                        |
+| `0.90–1.00` | Excellent | Optimal — cheapest SLA-compliant    |
+
+**Design rationale:** The reward is not sparse. It gives the agent a gradient to learn from, rewarding cost efficiency, SLA headroom, and picking the globally best option.
 
 ---
 
-## Tasks
+## 📋 Tasks
 
-| Task ID          | Difficulty | Key Challenge                                   |
-|------------------|------------|-------------------------------------------------|
-| `easy`           | Easy       | All providers meet SLA; pick cheapest           |
-| `medium`         | Medium     | Cheapest provider violates SLA                  |
-| `hard`           | Hard       | Tight SLA; misleading sticker prices            |
-| `bonus_cost`     | Easy       | Pure cost minimization, all compliant           |
-| `bonus_strict_sla` | Hard     | Only one provider can possibly meet SLA         |
+| Task ID            | Difficulty | Job Type    | SLA (ms) | Key Challenge                          |
+|--------------------|------------|-------------|----------|----------------------------------------|
+| `easy`             | Easy       | api_request | 90       | All providers comply — pick cheapest   |
+| `medium`           | Medium     | batch_job   | 125      | Cheapest provider violates SLA         |
+| `hard`             | Hard       | ml_training | 210      | Tight SLA + misleading sticker prices  |
+| `bonus_cost`       | Easy       | api_request | 100      | Pure cost minimization, all comply     |
+| `bonus_strict_sla` | Hard       | api_request | 60       | Only one provider can qualify          |
 
 ---
 
-## Baseline Agent
+## 🤖 LLM Baseline
 
-The baseline agent implements a simple greedy policy:
+The LLM agent uses the OpenAI-compatible client:
 
-1. Filter providers with `latency ≤ sla_max_latency`
-2. Return the provider with the lowest cost
-3. Fallback: if none meet SLA, pick lowest latency (best-effort)
+```python
+client = OpenAI(api_key=HF_TOKEN, base_url=API_BASE_URL)
 
-Run standalone:
+response = client.chat.completions.create(
+    model=MODEL_NAME,
+    messages=[{"role": "user", "content": prompt}],
+    max_tokens=10,
+    temperature=0,
+)
+```
+
+### Baseline Scores
+
+| Agent                     | Avg Reward | SLA Violations |
+|---------------------------|------------|----------------|
+| Greedy (rule-based)       | 0.877      | 0              |
+| Qwen/Qwen2.5-72B-Instruct | 0.877      | 0              |
+
+### Running inference
 
 ```bash
-python baseline/baseline.py
+python inference.py
 ```
 
-Sample output:
-
+Expected:
 ```
-[easy              ] → gcp    cost=  40.0  lat=  58.0ms  reward=0.9250  ✓  ★ optimal
-[medium            ] → gcp    cost=  72.0  lat= 108.0ms  reward=0.8500  ✓  ★ optimal
-[hard              ] → gcp    cost= 125.0  lat= 205.0ms  reward=0.7800  ✓  ★ optimal
-[bonus_cost        ] → gcp    cost=  38.0  lat=  70.0ms  reward=0.9100  ✓  ★ optimal
-[bonus_strict_sla  ] → gcp    cost=  45.0  lat=  55.0ms  reward=0.8800  ✓  ★ optimal
-
-============================================================
-  Baseline Performance Summary
-============================================================
-  Tasks evaluated : 5
-  Average reward  : 0.8690
-  SLA violations  : 0
-  Optimal picks   : 5
-============================================================
+Tasks evaluated : 5
+Average reward  : 0.877
+SLA violations  : 0
 ```
 
 ---
 
-## License
+## 🐳 Docker
 
-MIT — free to use for hackathon and research purposes.
+```bash
+docker build -t cloud-optimizer .
+
+docker run -p 7860:7860 \
+  -e API_BASE_URL=https://router.huggingface.co/v1 \
+  -e MODEL_NAME=Qwen/Qwen2.5-72B-Instruct \
+  -e HF_TOKEN=hf_your_token \
+  cloud-optimizer
+```
+
+---
+
+## ⚙️ Environment Variables
+
+| Variable       | Description                      | Example                            |
+|----------------|----------------------------------|------------------------------------|
+| `API_BASE_URL` | LLM API endpoint (OpenAI-compat) | `https://router.huggingface.co/v1` |
+| `MODEL_NAME`   | Model identifier for inference   | `Qwen/Qwen2.5-72B-Instruct`        |
+| `HF_TOKEN`     | Hugging Face / API key           | `hf_xxxxxxxxxxxxxxxxxxxx`          |
+
+---
+
+## 🔮 Future Scope
+
+- **Multi-step episodes** — optimize across a sequence of jobs, not just one
+- **Dynamic pricing** — cost and latency that change over time (spot pricing simulation)
+- **Multi-region support** — extend to us-east, eu-west, ap-south per provider
+- **RL training loop** — PPO/DQN agent trained directly on this environment
+- **Frontend dashboard** — visual interface to run tasks, compare providers, watch the agent reason live
+- **Multi-agent comparison** — benchmark GPT-4, Claude, Llama side-by-side on the same tasks
+
+---
+
+## 📄 License
+
+MIT — free to use for research and hackathon purposes.
