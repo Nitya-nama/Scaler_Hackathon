@@ -411,7 +411,7 @@ def agent_vs_baseline():
             "note": "Inference not configured"
         })    
 
-@app.get("/")
+@app.route("/", methods=["GET"])
 def home():
     return jsonify({
         "message": "SLA-Aware Multi-Cloud Cost Optimizer API",
