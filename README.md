@@ -69,7 +69,7 @@ This environment frames it as a sequential decision problem that an RL agent or 
 ## 📁 Project Structure
 
 ```
-multi-cloud-optimizer/
+multi_cloud_optimizer/
 ├── env/
 │   ├── cloud_env.py       # OpenEnv environment (reset, step, get_state)
 │   └── models.py          # Pydantic typed models (Observation, Action, Reward)
@@ -94,8 +94,8 @@ multi-cloud-optimizer/
 
 ```bash
 # 1. Clone and install
-git clone https://huggingface.co/spaces/nityanama/multi-cloud-optimizer
-cd multi-cloud-optimizer
+git clone https://huggingface.co/spaces/nityanama/multi_cloud_optimizer
+cd multi_cloud_optimizer
 pip install -r requirements.txt
 
 # 2. Set environment variables
@@ -125,14 +125,14 @@ docker run -p 7860:7860 \
 ### Option 3 — Hugging Face Spaces (live)
 
 ```
-https://nityanama-multi-cloud-optimizer.hf.space
+https://nityanama-multi_cloud_optimizer.hf.space
 ```
 
 ---
 
 ## 🔌 API Reference
 
-Base URL: `http://localhost:7860` (local) or `https://nityanama-multi-cloud-optimizer.hf.space` (HF)
+Base URL: `http://localhost:7860` (local) or `https://nityanama-multi_cloud_optimizer.hf.space` (HF)
 
 ### OpenEnv Core Endpoints
 
@@ -352,16 +352,6 @@ docker run -p 7860:7860 \
 - **RL training loop** — PPO/DQN agent trained directly on this environment
 - **Frontend dashboard** — visual interface to run tasks, compare providers, watch the agent reason live
 - **Multi-agent comparison** — benchmark GPT-4, Claude, Llama side-by-side on the same tasks
-
----
-
-## 👥 Team Aureon
-
-| Name | Role |
-|------|------|
-| Nitya Phaneesh Chandra Nama | Team Lead |
-| Vanditha Hamsa S B | Member |
-| Chandan N | Member |
 
 ---
 
