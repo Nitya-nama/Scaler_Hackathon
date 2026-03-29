@@ -94,6 +94,7 @@ This project is designed as an **AI-first system**:
   "sla_max_latency": 90
 }
 ```
+
 ---
 
 ## 🔁 How It Works
@@ -103,7 +104,6 @@ observation = env.reset()
 action = agent.act(observation)
 obs, reward, done, info = env.step(action)
 ```
-
 - Agent observes cloud conditions  
 - Selects provider  
 - Receives reward based on SLA + cost efficiency  
