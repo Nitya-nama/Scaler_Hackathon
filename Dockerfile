@@ -9,5 +9,4 @@ COPY . .
 
 EXPOSE 7860
 
-CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:7860", "api.app:app"]
-
+CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:7860", "app:app"]

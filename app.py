@@ -120,6 +120,8 @@ class CloudEnvironment:
                 "latency": round(profile["base_latency"][job_type] * random.uniform(0.9, 1.1), 2),
             }
         return data
+    
+    
 
 
 # ─────────────────────────────────────────────────────────────
@@ -330,29 +332,136 @@ def leaderboard():
 def health():
     return jsonify({"status": "ok", "service": "SLA-Aware Multi-Cloud Cost Optimizer"})
 
-@app.get("/")
+@app.get("/docs")
+def docs():
+    return jsonify({
+        "description": "OpenEnv-compatible AI evaluation environment",
+        "usage": {
+            "GET /reset": "Start new episode",
+            "POST /step": "Take action {action: aws|azure|gcp}",
+            "GET /state": "Get current state",
+            "GET /tasks": "List tasks",
+            "POST /grader": "Evaluate decision"
+        }
+    })
+    
+@app.get("/explain/<task_id>")
+def explain(task_id):
+    if task_id not in TASKS:
+        return _error("Invalid task_id", 404)
+
+    task = TASKS[task_id]
+    providers = task["providers"]
+    sla = task["sla_max_latency"]
+
+    explanation = []
+
+    for p, m in providers.items():
+        if m["latency"] > sla:
+            explanation.append(f"{p} ❌ rejected (latency {m['latency']} > SLA {sla})")
+        else:
+            explanation.append(f"{p} ✅ valid (cost={m['cost']}, latency={m['latency']})")
+
+    valid = {p: m for p, m in providers.items() if m["latency"] <= sla}
+
+    best = min(valid, key=lambda p: valid[p]["cost"]) if valid else None
+
+    return jsonify({
+        "task_id": task_id,
+        "decision_process": explanation,
+        "best_choice": best,
+        "reason": "Lowest cost among SLA-compliant providers"
+    })
+    
+@app.get("/insights/<task_id>")
+def insights(task_id):
+    if task_id not in TASKS:
+        return _error("Invalid task_id", 404)
+
+    task = TASKS[task_id]
+    providers = task["providers"]
+
+    cheapest = min(providers, key=lambda p: providers[p]["cost"])
+    fastest = min(providers, key=lambda p: providers[p]["latency"])
+
+    return jsonify({
+        "cheapest_provider": cheapest,
+        "fastest_provider": fastest,
+        "tradeoff_exists": cheapest != fastest,
+        "insight": "Optimal decision depends on SLA, not just cost"
+    })
+    
+@app.get("/agent_vs_baseline")
+def agent_vs_baseline():
+    baseline = run_baseline()
+
+    try:
+        from inference import run_inference
+        agent = run_inference()
+
+        return jsonify({
+            "baseline_avg": baseline["average_reward"],
+            "agent_avg": agent["average_reward"],
+            "improvement": round(agent["average_reward"] - baseline["average_reward"], 4)
+        })
+    except:
+        return jsonify({
+            "baseline_avg": baseline["average_reward"],
+            "agent_avg": "not available",
+            "note": "Inference not configured"
+        })    
+
+@app.route("/")
 def home():
     return jsonify({
         "message": "SLA-Aware Multi-Cloud Cost Optimizer API",
-        "version": "1.0",
-        "openenv_endpoints": {
-            "GET  /reset"             : "Start new episode — returns initial observation",
-            "POST /step"              : "Take action (aws/azure/gcp) — returns reward & state",
-            "GET  /state"             : "Get current state without stepping",
-        },
-        "task_endpoints": {
-            "GET  /tasks"             : "List all 5 benchmark tasks",
-            "GET  /tasks/<task_id>"   : "Full provider metrics for a task",
-            "POST /grader"            : "Score a cloud selection (0.0-1.0)",
-            "GET  /baseline"          : "Run greedy baseline on all tasks",
-            "GET  /baseline/<task_id>": "Run baseline on one task",
-            "GET  /compare/<task_id>" : "Compare all 3 providers on a task",
-        },
-        "other": {
-            "GET  /health"            : "Liveness check",
-            "GET  /leaderboard"       : "Top performers by reward",
-        }
+        "type": "AI Decision-Making Benchmark (OpenEnv)",
+        "status": "running",
+        "core_endpoints": ["/reset", "/step", "/state"],
+        "evaluation": ["/tasks", "/grader", "/baseline"],
+        "advanced": ["/explain/<task_id>", "/insights/<task_id>", "/agent_vs_baseline" , "/what_if/<task_id>"],
+        "docs": "/docs"
     })
+    
+@app.get("/what_if/<task_id>")
+def what_if(task_id):
+    if task_id not in TASKS:
+        return _error("Invalid task_id", 404)
+    action = request.args.get("action")
+    if action not in PROVIDERS:
+        return _error("Query param 'action' must be one of aws, azure, gcp")
+    task = TASKS[task_id]
+    # Evaluate chosen action
+    env = CloudEnvironment(task=task, noise=0.0)
+    env.reset()
+    _, reward, _, info = env.step(action)
+    # Evaluate optimal action
+    optimal = task.get("optimal_cloud")
+    env_opt = CloudEnvironment(task=task, noise=0.0)
+    env_opt.reset()
+    _, opt_reward, _, opt_info = env_opt.step(optimal)
+    loss = round(opt_reward - reward, 4)
+    return jsonify({
+        "task_id": task_id,
+        "chosen_action": action,
+        "optimal_action": optimal,
+        "chosen_result": {
+            "reward": round(reward, 4),
+            "cost": info["cost"],
+            "latency": info["latency"],
+            "sla_met": info["sla_met"]
+        },
+        "optimal_result": {
+            "reward": round(opt_reward, 4),
+            "cost": opt_info["cost"],
+            "latency": opt_info["latency"]
+        },
+        "performance_gap": loss,
+        "insight": (
+            "This shows how suboptimal decisions impact performance. "
+            "AI agents must reason about SLA constraints, not just cost."
+        )
+    })    
 
 @app.errorhandler(404)
 def not_found(_):      return _error("Endpoint not found.", 404)

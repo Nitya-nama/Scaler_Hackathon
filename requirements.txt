@@ -3,6 +3,5 @@ gunicorn
 numpy
 requests
 openai
-pydantic
+pydantic>=2.0
 python-dotenv
-git add .
