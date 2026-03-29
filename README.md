@@ -177,15 +177,15 @@ reward = 0.75 * cost_score \
 - Encourages optimal decisions
 
 ## ✨ Key Features
-✅ OpenEnv-compatible environment (reset, step, state)
-✅ Multi-cloud simulation (AWS, Azure, GCP)
-✅ Continuous reward system (not sparse)
-✅ Benchmark tasks (easy → medium → hard)
-✅ Deterministic grading system
-✅ Flask-based REST API
-✅ Deployable via Docker / Hugging Face Spaces
-⭐ Advanced Features (WOW Factor)
-🔍 Explainability
+- ✅ OpenEnv-compatible environment (reset, step, state)
+- ✅ Multi-cloud simulation (AWS, Azure, GCP)
+- ✅ Continuous reward system (not sparse)
+- ✅ Benchmark tasks (easy → medium → hard)
+- ✅ Deterministic grading system
+- ✅ Flask-based REST API
+- ✅ Deployable via Docker / Hugging Face Spaces
+
+## 🔍 Explainability
 
 /explain/{task}
 → Shows reasoning behind decisions and rejected options
