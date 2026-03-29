@@ -2,12 +2,12 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-COPY . .
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
+COPY . .
 
 EXPOSE 7860
 
-ENV PYTHONPATH=/app
 CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:7860", "api.app:app"]
+
